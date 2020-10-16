@@ -253,6 +253,45 @@ gg_points_frac <- function(data, y_string, x_string,
     if(new.break.points[length(new.break.points)]<max(break.points)) 
       new.break.points=c(new.break.points, max(break.points))
   }
+  
+  new.break.point.labels = fraclabs$ufraclab[fraclabs$fracindex %in% new.break.points];
+  
+  pf <- 
+    ggplot(data, aes_string(y=y_string, x=x_string,
+                            label=label_string,
+                            label2=label2_string
+    ))   +   
+    # scale_x_discrete(breaks=break.points, labels=break.points) +
+    # scale_x_continuous(breaks=c(1,4,9), labels=c(1,4,9)) +
+    scale_x_continuous(breaks = new.break.points, labels = data.original.level[new.break.points]) +
+    theme(axis.title.x=element_blank(),
+          axis.title.y=element_blank(), #           panel.margin.x=unit(0.5, "lines") , panel.margin.y=unit(1,"lines"), # added 4/12
+          plot.margin = margin(0.2, 1.0, 0.2, 0, "cm"),
+          legend.position="none")    
+  
+  
+  if(same_scale)
+  {
+    pf <- pf+ylim(min_y, max_y)
+  } else if (!is.null(min_y) && !is.null(max_y)) {
+    pf <- pf + ylim(min_y,max_y)
+  } else if (!is.null(min_y)) {
+    pf <- pf + ylim(min_y,NA)
+  } else if (!is.null(max_y)) {
+    pf <- pf + ylim(NA,max_y)
+  }
+  
+  if(boxplot)
+  {
+    pf <- pf+geom_boxplot()
+  }
+  if(smooth)
+  {
+    pf <- pf+stat_smooth(aes_string(y=y_string, x=x_string, col=col_string),
+                         method="loess", fill="grey50", size=0)
+  }
+  pf + geom_point(aes_string(col=col_string))
+  
 }
 
 gg_points_frac_perc <- function(data, y_string, x_string,
@@ -310,7 +349,7 @@ gg_points_frac_perc <- function(data, y_string, x_string,
 
 gg_pfp_plotly_all_id <- function(qc_all, qc_id, y_string,
                                  min_y_all, max_y_all,
-                                 min_y_id, min_x_id,
+                                 min_y_id, max_y_id,
                                  annot_all_1, annot_all_2,
                                  annot_id_1, annot_id_2)
 {
@@ -359,10 +398,10 @@ gg_bars <- function(data, y_string, x_string, col_string, label_string)
 }
   
 # Function to melt variables by fraction
-melt_by_fraction <- function(qc_df, variable.name)
+melt_by_fraction <- function(qc_df, cols,
+                             variable.name, split="Percentile")
 {  
-  qc_df_subset <- qc_df[,c(2,3,grep(paste(variable.name,".",sep=""),
-                                    colnames(qc_df)))]
+  qc_df_subset <- qc_df[,cols]
   qc_long <- melt(qc_df_subset,
                   variable.name=variable.name,
                   value.name="value",
@@ -370,8 +409,8 @@ melt_by_fraction <- function(qc_df, variable.name)
   
   qc_long <- cbind(qc_long[,1:2],
                    colsplit(qc_long[,3], "\\.",
-                            c(variable.name,"Percentile")),
-                   QCmetricsLongPrecInt_ALL[,4])
+                            c(variable.name,split)),
+                   qc_long[,4])
   
   colnames(qc_long)[5] <- "value"
   

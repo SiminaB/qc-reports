@@ -211,6 +211,36 @@ QCmetrics_AS$`Analytical sample` <- QCmetrics_AS$analyticalBasename
 ```
 
 ```{r,include=FALSE}
+## Get the fractions, give a number to the non-number fractions
+## There must be a more straightfoward way to do this!!!!
+QCmetrics$FractionString <- as.character(QCmetrics$Fraction)
+fracnums <- as.numeric(QCmetrics$FractionString)
+fracisnum <- !is.na(fracnums)
+fraclabs <- data.frame(ufraclab=unique(QCmetrics$Fraction[order(fracnums,QCmetrics$FractionString)]))
+fraclabs$ufraclab<-as.character(fraclabs$ufraclab)
+ufracnums <- as.numeric(fraclabs$ufraclab)
+ufracisnum <- !is.na(ufracnums)
+fraclabs$fracindex <- 1:length(fraclabs$ufraclab)
+if (sum(ufracisnum) == 0) {
+    maxfracnum <- 0
+} else {
+    maxfracnum <- max(ufracnums[ufracisnum])
+}
+fraclabs$fracnum <- ufracnums
+fraclabs$fracnum[!ufracisnum] <- (maxfracnum+1):(maxfracnum+(sum(!ufracisnum)))
+QCmetrics <- merge(QCmetrics,fraclabs,by.x='Fraction',by.y='ufraclab')
+QCmetrics$FractionIndex <- QCmetrics$fracindex
+QCmetrics$fracindex <- NULL
+QCmetrics$FractionNumber <- QCmetrics$fracnum
+QCmetrics$fracnum <- NULL
+
+mylog(fraclabs)
+## Now QCmetrics has Fraction (factor, probably), FractionString, FractionIndex, and FractionNumber
+## Single alpha letter fractions come after all numbers.
+QCmetrics$Fraction <- QCmetrics$FractionString
+```
+
+```{r,include=FALSE}
 ##need to separate out the fractions if they are all equal to NA (this means they have not been pulled out before)
 if(sum(!is.na(QCmetrics$Fraction)) == 0)
 {
@@ -252,29 +282,59 @@ if ("MS2Charge0_ALL" %in% colnames(QCmetrics)) {
 }
 
 ##Create data frame melting the precursor intensities
-QCmetricsLongPrecInt_ALL <- melt_by_fraction(QCmetrics, "PrecursorIntensityALL")
+QCmetricsLongPrecInt_ALL <- 
+  melt_by_fraction(QCmetrics,
+                   cols=grep("^(analyticalBasename|Fraction|PrecursorIntensityALL\\.\\d+)$",
+                             colnames(QCmetrics)),
+                   "PrecursorIntensityALL")
 
 ##Create data frame melting the precursor MZ values
-QCmetricsLongPrecMZ_ALL <- melt_by_fraction(QCmetrics, "PrecursorMZALL")
+QCmetricsLongPrecMZ_ALL <- 
+  melt_by_fraction(QCmetrics, 
+                   cols=
+                     grep("^(analyticalBasename|Fraction|PrecursorMZALL\\.\\d+)$",
+                          colnames(QCmetrics)),
+                   "PrecursorMZALL")
 
 ##Create data frame melting the precursor MW values
-QCmetricsLongPrecMW_ALL <- melt_by_fraction(QCmetrics, "PrecursorMWALL") 
+QCmetricsLongPrecMW_ALL <- 
+  melt_by_fraction(QCmetrics, 
+                   cols=grep("^(analyticalBasename|Fraction|PrecursorMWALL\\.\\d+)$",
+                             colnames(QCmetrics)),
+                   "PrecursorMWALL") 
 
 ##Create data frame melting the MS2perMS values
-QCmetricsLongMS2perMS_ALL <- melt_by_fraction(QCmetrics, "MS2perMS1ALL")  
+QCmetricsLongMS2perMS_ALL <- 
+  melt_by_fraction(QCmetrics, 
+                   cols=grep("^(analyticalBasename|Fraction|MS2perMS1ALL\\.\\d+)$",
+                                                  colnames(QCmetrics)),
+                   "MS2perMS1ALL")  
 
 ##Create data frame melting MS2 charge ratio
-QCmetricsLongMS2Charge_ALL <- melt_by_fraction(QCmetrics, "MS2chargeALL")  
+QCmetricsLongMS2Charge_ALL <- 
+  melt_by_fraction(QCmetrics, 
+                   cols=grep("^(analyticalBasename|Fraction|MS2chargeALL\\.\\d+[a-z]*)$",
+                             colnames(QCmetrics)),
+                   split="MS2ChargeState",
+                   "MS2chargeALL")  
 
 QCmetricsLongMS2Charge_ALL$MS2chargeALL <- NULL
 totalMS2_ALL = sum(QCmetricsLongMS2Charge_ALL$value)
 QCmetricsLongMS2Charge_ALL$Chargeratio<- c(QCmetricsLongMS2Charge_ALL$value/totalMS2_ALL)
 
 # Create data frame melting Peptie Redundancy (Jiahao)
-QCmetricsPeptideRd <- melt_by_fraction(QCmetrics, "PeptideRd")
+QCmetricsPeptideRd <- 
+  melt_by_fraction(QCmetrics,
+                   cols=grep("^(analyticalBasename|Fraction|PeptideRd\\.\\d+)$",
+                             colnames(QCmetrics)),
+                   "PeptideRd")
   
 # Create data frame melting Retention Time All
-QCmetricsPeptideRT_ALL <- melt_by_fraction(QC_metrics, "RetentionTimeALL") 
+QCmetricsPeptideRT_ALL <- 
+  melt_by_fraction(QCmetrics,
+                   cols=grep("^(analyticalBasename|Fraction|RetentionTimeALL\\.\\d+)$",
+                             colnames(QCmetrics)),
+                   "RetentionTimeALL") 
 
 # Create dataframe for different charge state
 # create the label
@@ -301,19 +361,40 @@ if ("MS2Charge0_ID" %in% colnames(QCmetrics)) {
 }
 
 ##Create data frame melting the precursor intensities
-QCmetricsLongPrecInt_ID <- melt_by_fraction(QCmetrics, "PrecursorIntensityID") 
+QCmetricsLongPrecInt_ID <- 
+  melt_by_fraction(QCmetrics,
+                   cols=grep("^(analyticalBasename|Fraction|PrecursorIntensityID\\.\\d+)$",
+                             colnames(QCmetrics)),
+                   "PrecursorIntensityID") 
 
 ##Create data frame melting the precursor MZ values
-QCmetricsLongPrecMZ_ID <- melt_by_fraction(QCmetrics, "PrecursorMZID") 
+QCmetricsLongPrecMZ_ID <- 
+  melt_by_fraction(QCmetrics, 
+                   cols=grep("^(analyticalBasename|Fraction|PrecursorMZID\\.\\d+)$",
+                             colnames(QCmetrics)),
+                   "PrecursorMZID") 
 
 ##Create data frame melting the precursor MW values
-QCmetricsLongPrecMW_ID <- melt_by_fraction(QCmetrics, "PrecursorMWID") 
+QCmetricsLongPrecMW_ID <- 
+  melt_by_fraction(QCmetrics,
+                   cols=grep("^(analyticalBasename|Fraction|PrecursorMWID\\.\\d+)$",
+                             colnames(QCmetrics)),
+                   "PrecursorMWID") 
 
 ##Create data frame melting the MS2perMS values
-QCmetricsLongMS2perMS_ID <- melt_by_fraction(QCmetrics, "MS2perMS1") 
+QCmetricsLongMS2perMS_ID <- 
+  melt_by_fraction(QCmetrics, 
+                   cols=grep("^(analyticalBasename|Fraction|MS2perMS1ID\\.\\d+)$",
+                             colnames(QCmetrics)),
+                   "MS2perMS1") 
 
 ##Create data frame melting MS2 charge ratio
-QCmetricsLongMS2Charge_ID <- melt_by_fraction(QCmetrics, "MS2chargeID")  
+QCmetricsLongMS2Charge_ID <- 
+  melt_by_fraction(QCmetrics,
+                   cols=grep("^(analyticalBasename|Fraction|MS2chargeID\\.\\d[a-z]*)$",
+                             colnames(QCmetrics)),
+                   "MS2chargeID",
+                   split="MS2ChargeState")  
 totalMS2_ID = sum(QCmetricsLongMS2Charge_ID$value)
 QCmetricsLongMS2Charge_ID$Chargeratio<- c(QCmetricsLongMS2Charge_ID$value/totalMS2_ID)
 
@@ -331,7 +412,11 @@ summary(Chargeratio_ALL)
 summary(Chargeratio_ID)
 
 # Create data frame melting Retention Time ID (Jiahao)
-QCmetricsPeptideRT_ID <- melt_by_fraction(QCmetrics, "RetentionTimeID") 
+QCmetricsPeptideRT_ID <- 
+  melt_by_fraction(QCmetrics,
+                   cols=grep("^(analyticalBasename|Fraction|RetentionTimeID\\.\\d+)$",
+                             colnames(QCmetrics)),
+                   "RetentionTimeID") 
 ```
 
 ```{r, include=FALSE}
@@ -603,45 +688,6 @@ title_ALL <- "All MS/MS Spectra"
 title_ID <-  "Identified MS/MS Spectra"
 
 #find_min(QCmetricsLongPrecMW_ALL, QCmetricsLongPrecMW_ID)
-```
-
-```{r}
-pf <- 
-  ggplot(data, aes_string(y=y_string, x=x_string,
-                          label=label_string,
-                          label2=label2_string
-  ))   +   
-  # scale_x_discrete(breaks=break.points, labels=break.points) +
-  # scale_x_continuous(breaks=c(1,4,9), labels=c(1,4,9)) +
-  scale_x_continuous(breaks = new.break.points, labels = data.original.level[new.break.points]) +
-  theme(axis.title.x=element_blank(),
-        axis.title.y=element_blank(), #           panel.margin.x=unit(0.5, "lines") , panel.margin.y=unit(1,"lines"), # added 4/12
-        plot.margin = margin(0.2, 1.0, 0.2, 0, "cm"),
-        legend.position="none")    
-
-
-if(same_scale)
-{
-  pf <- pf+ylim(min_y, max_y)
-} else if (!is.null(min_y) && !is.null(max_y)) {
-  pf <- pf + ylim(min_y,max_y)
-} else if (!is.null(min_y)) {
-  pf <- pf + ylim(min_y,NA)
-} else if (!is.null(max_y)) {
-  pf <- pf + ylim(NA,max_y)
-}
-
-if(boxplot)
-{
-  pf <- pf+geom_boxplot()
-}
-if(smooth)
-{
-  pf <- pf+stat_smooth(aes_string(y=y_string, x=x_string, col=col_string),
-                       method="loess", fill="grey50", size=0)
-}
-pf + geom_point(aes_string(col=col_string))
-
 ```
 
 <P/>
@@ -994,9 +1040,9 @@ QCmetricsLongPrecInt_ID$value2[QCmetricsLongPrecInt_ID$value2 == 0] <-
 gg_pfp_plotly_all_id(QCmetricsLongPrecInt_ALL, QCmetricsLongPrecInt_ID,
                      y_string="log10(value2)",
                      min_y_all=min(Pmin_ALL, Pmin_ID), 
-                     max_y_all=max(pmas_ALL, Pmax_ALL),
+                     max_y_all=max(Pmax_ALL, Pmax_ID),
                      min_y_id=min(Pmin_ALL,Pmin_ID), 
-                     min_x_id=max(Pmax_ALL, Pmax_ID),
+                     max_y_id=max(Pmax_ALL, Pmax_ID),
                      annot_all_1=all_spect_title_grid,
                      annot_all_2=fr_title,
                      annot_id_1=id_spect_title_grid,
@@ -1016,7 +1062,7 @@ gg_pfp_plotly_all_id(QCmetricsLongPrecMZ_ALL, QCmetricsLongPrecMZ_ID,
                                         QCmetricsLongPrecMZ_ID),
                      min_y_id=find_min(QCmetricsLongPrecMZ_ALL,
                                        QCmetricsLongPrecMZ_ID), 
-                     min_x_id=find_max(QCmetricsLongPrecMZ_ALL,
+                     max_y_id=find_max(QCmetricsLongPrecMZ_ALL,
                                        QCmetricsLongPrecMZ_ID),
                      annot_all_1=all_spect_title_grid,
                      annot_all_2=fr_title,
@@ -1037,7 +1083,7 @@ gg_pfp_plotly_all_id(QCmetricsLongPrecMW_ALL, QCmetricsLongPrecMW_ID,
                                         QCmetricsLongPrecMW_ID),
                      min_y_id=find_min(QCmetricsLongPrecMW_ALL,
                                        QCmetricsLongPrecMW_ID), 
-                     min_x_id=find_max(QCmetricsLongPrecMW_ALL,
+                     max_y_id=find_max(QCmetricsLongPrecMW_ALL,
                                        QCmetricsLongPrecMW_ID),
                      annot_all_1=all_spect_title_grid,
                      annot_all_2=fr_title,
@@ -1084,7 +1130,7 @@ gg_pfp_plotly_all_id(QCmetricsLongMS2perMS_ALL, QCmetricsLongMS2perMS_ID,
                                         QCmetricsLongMS2perMS_ID),
                      min_y_id=find_min(QCmetricsLongMS2perMS_ALL,
                                        QCmetricsLongMS2perMS_ID), 
-                     min_x_id=find_max(QCmetricsLongMS2perMS_ALL,
+                     max_y_id=find_max(QCmetricsLongMS2perMS_ALL,
                                        QCmetricsLongMS2perMS_ID),
                      annot_all_1=all_spect_title_grid,
                      annot_all_2=fr_title,
@@ -1137,7 +1183,7 @@ gg_pfp_plotly_all_id(QCmetricsPeptideRT_ALL, QCmetricsPeptideRT_ID,
                                         QCmetricsPeptideRT_ID),
                      min_y_id=find_min(QCmetricsPeptideRT_ALL,
                                        QCmetricsPeptideRT_ID), 
-                     min_x_id=find_max(QCmetricsPeptideRT_ALL,
+                     max_y_id=find_max(QCmetricsPeptideRT_ALL,
                                        QCmetricsPeptideRT_ID),
                      annot_all_1=all_spect_title_grid,
                      annot_all_2=fr_title,
